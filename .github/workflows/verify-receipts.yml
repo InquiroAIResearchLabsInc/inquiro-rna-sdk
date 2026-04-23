@@ -1,0 +1,59 @@
+# Push/PR: deterministic — local mock server + verifier (no Render cold start).
+name: Verify RNA Receipts (mock)
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Start mock MCP server
+        run: |
+          cd "${{ github.workspace }}"
+          nohup python mock/mock_server.py > /tmp/mock_rna.log 2>&1 &
+          echo $! > /tmp/mock_rna.pid
+          sleep 3
+          curl -sf http://localhost:8000/health | python -m json.tool
+      - name: Generate receipt from mock
+        run: |
+          curl -s -X POST http://localhost:8000/mcp \
+            -H "Content-Type: application/json" \
+            -d @payloads/identity_verified.json > /tmp/receipt.json
+          echo "Receipt generated:"
+          python -m json.tool < /tmp/receipt.json
+      - name: Verify receipt integrity
+        run: python verifier/verify.py /tmp/receipt.json
+      - name: Verify all sample payloads
+        run: |
+          set -e
+          for payload in payloads/*.json; do
+            echo "Testing $payload..."
+            curl -s -X POST http://localhost:8000/mcp \
+              -H "Content-Type: application/json" \
+              -d @"$payload" > /tmp/test_receipt.json
+            python verifier/verify.py /tmp/test_receipt.json
+          done
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Go mod download
+        run: |
+          cd examples/go
+          go mod download
+      - name: Go verify_receipt (stdlib SHA-256 + zeebo/blake3)
+        run: |
+          cd examples/go
+          go run ./verify_receipt /tmp/receipt.json
+      - name: Go client example
+        run: |
+          cd examples/go
+          go run ./client
