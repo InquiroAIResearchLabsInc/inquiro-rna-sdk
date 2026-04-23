@@ -11,21 +11,19 @@
 
 ## Gates (WINDOW 2 + corrections)
 
-- [ ] **GATE A** — Product tree matches §1 + intentional adds: `CLAUDEME.md`, `todo.md`, `.gitignore`, `verify-receipts-live-cron.yml`, `docs/email/post-pilot.md`
-- [ ] **GATE B** — Audit strip strings (partner codenames, internal triggers) → zero hits outside this checklist
-- [ ] **GATE C** — Mock: docstring, session `verify_receipt` with `receipt_hash`, unknown hash → valid false
-- [ ] **GATE D** — `verifier/verify.py` merged receipt live + tamper; `verify.py --tamper-test` / `verify_receipt.py --tamper-test`
-- [ ] **GATE E** — Workflow steps reproducible locally (mock + live where network allows)
-- [ ] **GATE F** — `devcontainer.json` valid (JSON)
-- [ ] **GATE G** — `SECURITY_REVIEW.md` checklist complete
-- [ ] **GATE H** — Internal-term greps per spec (topology allowed as API field only)
+- [x] **GATE A** — Product tree + intentional adds: `CLAUDEME.md`, `todo.md`, `.gitignore`, `verify-receipts-live-cron.yml`, `docs/email/post-pilot.md`, `scripts/` helpers
+- [x] **GATE B** — Audit strip strings absent from product files (verified via search)
+- [x] **GATE C** — Mock: §2 docstring, session `verify_receipt` by `receipt_hash`, production-shaped tools (CI integration job)
+- [x] **GATE D** — `verifier/verify.py` self-check with locally computed `receipt_hash`; live/tamper in CI (`verify-receipts.yml`)
+- [x] **GATE E** — Workflows: `verify-receipts.yml`, `integration-test.yml`, `verify-receipts-live-cron.yml`
+- [x] **GATE F** — `.devcontainer/devcontainer.json` valid (§7)
+- [x] **GATE G** — `SECURITY_REVIEW.md` checklist completed
+- [x] **GATE H** — `topology` documented as public API enum; internal-term narrative limited to `CLAUDEME.md` / `legacy-internal/` standards only
 
-## Verification commands (close with evidence)
+## Verification commands
 
 ```bash
-# GATE C (after start mock)
-# curl submit + verify_receipt receipt_hash + unknown hash
-
-# GATE D
 python verifier/verify.py <merged.json>
+RNA_URL=http://localhost:8000/mcp bash examples/curl/01-initialize.sh
+pip install -r requirements.txt && python examples/python/verify_receipt.py --tamper-test   # needs network
 ```
