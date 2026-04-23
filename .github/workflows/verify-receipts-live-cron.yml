@@ -1,0 +1,69 @@
+# Scheduled: hits live Render endpoint to prove production + format on a warm or cold server.
+name: Verify RNA Receipts (live API)
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  verify-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Generate test receipt from live API
+        env:
+          LIVE_URL: https://aiflightrecorder.onrender.com/mcp
+        run: |
+          echo "POSTing identity_verified payload to $LIVE_URL ..."
+          attempt=0
+          ok=0
+          while [ $attempt -lt 5 ]; do
+            code=$(curl -sS -o /tmp/receipt.json -w "%{http_code}" -X POST "$LIVE_URL" \
+              -H "Content-Type: application/json" \
+              -d @payloads/identity_verified.json || true)
+            if [ "$code" = "200" ] && [ -s /tmp/receipt.json ]; then
+              ok=1
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt failed (http $code), retrying in 30s..."
+            sleep 30
+          done
+          if [ "$ok" != "1" ]; then
+            echo "Live API did not return 200 after retries."
+            exit 1
+          fi
+          echo "Receipt generated:"
+          python -m json.tool < /tmp/receipt.json
+      - name: Verify receipt integrity
+        run: python verifier/verify.py /tmp/receipt.json
+      - name: Go mod download
+        run: |
+          cd examples/go
+          go mod download
+      - name: Go verify_receipt (live receipt)
+        run: |
+          cd examples/go
+          go run ./verify_receipt /tmp/receipt.json
+      - name: Verify all sample payloads (live)
+        run: |
+          set -e
+          for payload in payloads/*.json; do
+            echo "Testing $payload..."
+            code=$(curl -sS -o /tmp/test_receipt.json -w "%{http_code}" -X POST https://aiflightrecorder.onrender.com/mcp \
+              -H "Content-Type: application/json" \
+              -d @"$payload" || true)
+            if [ "$code" != "200" ]; then
+              echo "HTTP $code for $payload"
+              exit 1
+            fi
+            python verifier/verify.py /tmp/test_receipt.json
+          done

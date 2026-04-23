@@ -1,0 +1,2 @@
+# Verifier and local tooling
+blake3>=0.4.0
