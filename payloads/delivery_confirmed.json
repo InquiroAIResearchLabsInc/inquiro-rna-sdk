@@ -1,0 +1,9 @@
+{
+  "event_type": "delivery_confirmed",
+  "device_id": "DEV-004",
+  "tenant_id": "demo_public",
+  "metadata": {
+    "recipient": "demo_recipient",
+    "version": 1
+  }
+}
