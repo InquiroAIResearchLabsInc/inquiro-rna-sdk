@@ -1,11 +1,10 @@
+//go:build ignore
+
 // Verify a receipt: SHA-256 (stdlib) + BLAKE3 (github.com/zeebo/blake3).
-// When Python is available, canonical bytes come from repo scripts/payload_canonical_b64.py
-// (same as verifier/verify.py) so results match. Otherwise, pure-Go JSON normalize + Marshal.
+// When Python is available, canonical bytes come from scripts/payload_canonical_b64.py
+// (same source of truth as verifier/verify.py). Otherwise falls back to pure-Go JSON.
 //
-// Run: go mod download
-//
-//   go run . ../../path/to/receipt.json
-// CI sets INQUIRO_ROOT to the repository root; locally we walk up to find canonical_payload.py.
+// Run: cd examples/go && go mod download && go run verify_receipt.go <path/to/receipt.json>
 package main
 
 import (
@@ -24,7 +23,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: go run . <receipt.json>")
+		fmt.Fprintln(os.Stderr, "Usage: go run verify_receipt.go <receipt.json>")
 		os.Exit(1)
 	}
 	raw, err := os.ReadFile(os.Args[1])
@@ -138,7 +137,6 @@ func findRepoRoot() string {
 	return ""
 }
 
-// canonicalBytes prefers Python+canonical_payload (source of truth); falls back to Go JSON.
 func canonicalBytes(receiptPath string, plink map[string]any) ([]byte, error) {
 	root := findRepoRoot()
 	script := filepath.Join(root, "scripts", "payload_canonical_b64.py")
@@ -150,7 +148,7 @@ func canonicalBytes(receiptPath string, plink map[string]any) ([]byte, error) {
 			} else if p, _ := exec.LookPath("py"); p != "" {
 				cmd = exec.Command("py", "-3", script, receiptPath)
 			} else {
-				return nil, fmt.Errorf("no python3 on PATH (need Python for canonical bytes)")
+				return nil, fmt.Errorf("no python3 on PATH")
 			}
 			cmd.Dir = root
 			out, err := cmd.CombinedOutput()
@@ -178,8 +176,6 @@ func canonicalBytes(receiptPath string, plink map[string]any) ([]byte, error) {
 	return json.Marshal(norm)
 }
 
-// normalizeForCanonical aligns JSON number types with Python's json: whole floats → int64
-// so encoding matches json.dumps on dicts that used int for JSON integer literals.
 func normalizeForCanonical(v any) any {
 	switch t := v.(type) {
 	case float64:
