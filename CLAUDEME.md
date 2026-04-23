@@ -240,7 +240,7 @@ ELSE:                         CLOSED  → continue optimizing
 
 Constants (NEVER change without human approval):
 ```
-ADVANCEMENT_LABEL_REDACTED = { qed_compression:0.90, proofpack_gap:0.85, axiom_discovery:0.88, meta_transfer:0.80 }
+THRESHOLDS_REDACTED = { qed_compression:0.90, proofpack_gap:0.85, axiom_discovery:0.88, meta_transfer:0.80 }
 AUTONOMY_THRESHOLD=0.75  TRANSFER_THRESHOLD=0.70  CASCADE_MULTIPLIER=5  CONFIDENCE_FALLBACK=0.85
 ```
 
