@@ -1,0 +1,8 @@
+{
+  "name": "inquiro-rna-verifier-js",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@noble/hashes": "^1.3.3"
+  }
+}

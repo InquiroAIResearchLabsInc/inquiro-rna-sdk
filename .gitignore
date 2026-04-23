@@ -8,3 +8,4 @@ venv/
 .mypy_cache/
 .DS_Store
 Thumbs.db
+node_modules/

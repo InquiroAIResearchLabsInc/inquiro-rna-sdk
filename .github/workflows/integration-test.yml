@@ -1,0 +1,64 @@
+name: Integration Test (Mock Server)
+
+on: [push, pull_request]
+
+jobs:
+  mock-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install mock server dependencies
+        run: |
+          pip install blake3 requests
+          pip install -r mock/requirements.txt
+
+      - name: Start mock server
+        run: |
+          cd mock && python mock_server.py &
+          sleep 3
+          echo "Mock server started"
+
+      - name: Test all tools against mock
+        run: |
+          for script in examples/curl/*.sh; do
+            echo "=== Running $script against mock ==="
+            RNA_URL=http://localhost:8000/mcp bash "$script"
+          done
+
+      - name: Test session-based verify
+        run: |
+          echo "Testing mock session verify..."
+          python -c "
+          import requests, json
+          base = 'http://localhost:8000/mcp'
+          r = requests.post(base, json={
+            'jsonrpc':'2.0','id':'1','method':'tools/call',
+            'params':{'name':'submit_attestation',
+                      'arguments':{'event_type':'identity_verified',
+                                   'device_id':'TEST-001',
+                                   'payload':{'test':True},
+                                   'timestamp':'2026-01-01T00:00:00Z',
+                                   'signature':'dGVzdA=='}}})
+          receipt = json.loads(r.json()['result']['content'][0]['text'])
+          receipt_hash = receipt['receipt_hash']
+          print(f'Submitted. Hash: {receipt_hash[:16]}...')
+          r2 = requests.post(base, json={
+            'jsonrpc':'2.0','id':'2','method':'tools/call',
+            'params':{'name':'verify_receipt',
+                      'arguments':{'receipt_hash':receipt_hash}}})
+          result = json.loads(r2.json()['result']['content'][0]['text'])
+          assert result['valid'] == True, f'Expected valid: True, got {result}'
+          print('Session verify: PASSED')
+          r3 = requests.post(base, json={
+            'jsonrpc':'2.0','id':'3','method':'tools/call',
+            'params':{'name':'verify_receipt',
+                      'arguments':{'receipt_hash':'a'*64 + ':' + 'a'*64}}})
+          result3 = json.loads(r3.json()['result']['content'][0]['text'])
+          assert result3['valid'] == False, f'Expected valid: False, got {result3}'
+          print('Unknown hash returns False: PASSED')
+          "

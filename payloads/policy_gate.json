@@ -1,9 +1,0 @@
-{
-  "event_type": "policy_gate",
-  "device_id": "DEV-001",
-  "tenant_id": "demo_public",
-  "metadata": {
-    "source": "sandbox",
-    "version": 1
-  }
-}

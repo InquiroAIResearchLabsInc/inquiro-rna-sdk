@@ -338,7 +338,7 @@ Use subagents when: reading many files, parallelizable work, specialized review,
 # code-reviewer: tools: Read, Grep — model: sonnet — fresh context only
 # rna-validator: tools: Read, Grep — checks receipts/dual_hash/tenant_id compliance
 # gate-runner: tools: Bash (scoped to gate scripts) — T+2h/T+24h/T+48h
-# monte-carlo-runner: tools: Bash (scoped to `proof simulate`) — returns pass/fail
+# monte-carlo-runner: tools: Bash (scoped to proof simulate) — returns pass/fail
 ```
 
 **MUST:** subagent output includes result + receipt hash. No receipt = result rejected (LAW_1).
