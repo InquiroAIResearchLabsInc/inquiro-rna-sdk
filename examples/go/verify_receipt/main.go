@@ -1,15 +1,23 @@
 // Verify a receipt: SHA-256 (stdlib) + BLAKE3 (github.com/zeebo/blake3).
+// When Python is available, canonical bytes come from repo scripts/payload_canonical_b64.py
+// (same as verifier/verify.py) so results match. Otherwise, pure-Go JSON normalize + Marshal.
+//
 // Run: go mod download
 //
 //   go run . ../../path/to/receipt.json
+// CI sets INQUIRO_ROOT to the repository root; locally we walk up to find canonical_payload.py.
 package main
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/zeebo/blake3"
 )
@@ -44,10 +52,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "FAIL: payload not an object")
 		os.Exit(1)
 	}
-	// Match Python json.loads+canonical: JSON integers become float64 in Go; json.Marshal
-	// of float64(1) must match int 1 in Python — normalize whole numbers to int64.
-	norm := normalizeForCanonical(plink)
-	canon, err := json.Marshal(norm)
+	canon, err := canonicalBytes(os.Args[1], plink)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "FAIL", err)
 		os.Exit(1)
@@ -111,6 +116,54 @@ func hasHashes(m map[string]any) bool {
 	_, b := m["blake3"]
 	_, p := m["payload"]
 	return s && b && p
+}
+
+func findRepoRoot() string {
+	if v := os.Getenv("INQUIRO_ROOT"); v != "" {
+		return v
+	}
+	if v := os.Getenv("GITHUB_WORKSPACE"); v != "" {
+		return v
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	prev := ""
+	for d := wd; d != "" && d != prev; prev, d = d, filepath.Dir(d) {
+		if st, e := os.Stat(filepath.Join(d, "canonical_payload.py")); e == nil && !st.IsDir() {
+			return d
+		}
+	}
+	return ""
+}
+
+// canonicalBytes prefers Python+canonical_payload (source of truth); falls back to Go JSON.
+func canonicalBytes(receiptPath string, plink map[string]any) ([]byte, error) {
+	root := findRepoRoot()
+	script := filepath.Join(root, "scripts", "payload_canonical_b64.py")
+	if root != "" {
+		if st, e := os.Stat(script); e == nil && !st.IsDir() {
+			var out []byte
+			var err error
+			if p, _ := exec.LookPath("python3"); p != "" {
+				out, err = exec.Command("python3", script, receiptPath).Output()
+			} else if p, _ := exec.LookPath("py"); p != "" {
+				out, err = exec.Command("py", "-3", script, receiptPath).Output()
+			} else {
+				err = fmt.Errorf("no python3 on PATH")
+			}
+			if err == nil {
+				b64s := strings.TrimSpace(string(out))
+				b, decErr := base64.StdEncoding.DecodeString(b64s)
+				if decErr == nil {
+					return b, nil
+				}
+			}
+		}
+	}
+	norm := normalizeForCanonical(plink)
+	return json.Marshal(norm)
 }
 
 // normalizeForCanonical aligns JSON number types with Python's json: whole floats → int64
