@@ -1,3 +1,4 @@
+legacy-internal/
 __pycache__/
 *.py[cod]
 .venv/

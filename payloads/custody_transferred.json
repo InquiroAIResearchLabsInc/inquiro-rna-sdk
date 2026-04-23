@@ -1,0 +1,10 @@
+{
+  "event_type": "custody_transferred",
+  "device_id": "DEV-002",
+  "tenant_id": "demo_public",
+  "metadata": {
+    "from": "facility-a",
+    "to": "facility-b",
+    "version": 1
+  }
+}

@@ -1,5 +1,8 @@
+//go:build ignore
+
 // Example client: SHA-256 of a canonical attestation.
-// For SHA-256 + BLAKE3 of arbitrary JSON (matching Python), use: go run ./verify_receipt
+// Run: go run examples/go/client.go [-v]
+// For SHA-256 + BLAKE3, see: go run examples/go/verify_receipt.go <receipt.json>
 package main
 
 import (
@@ -10,7 +13,6 @@ import (
 	"os"
 )
 
-// Payload matches payloads/*.json shape; struct field order = lexicographic json tag order.
 type Metadata struct {
 	Source  string `json:"source"`
 	Version int    `json:"version"`
@@ -25,7 +27,7 @@ type Payload struct {
 
 func main() {
 	fmt.Println("Inquiro RNA example — client (stdlib SHA-256 of canonical attestation).")
-	fmt.Println("BLAKE3 in Go: see verify_receipt (github.com/zeebo/blake3).")
+	fmt.Println("BLAKE3 in Go: see verify_receipt.go (github.com/zeebo/blake3).")
 	p := Payload{
 		DeviceID:  "DEV-001",
 		EventType: "identity_verified",
@@ -36,7 +38,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// No extra spaces: matches json.Compact of sorted maps from Python for this shape.
 	if len(os.Args) > 1 && os.Args[1] == "-v" {
 		fmt.Println(string(b))
 	}

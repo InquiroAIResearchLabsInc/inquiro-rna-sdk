@@ -1,0 +1,10 @@
+{
+  "event_type": "seal_broken",
+  "device_id": "DEV-003",
+  "tenant_id": "demo_public",
+  "seal_id": "SEAL-001",
+  "metadata": {
+    "status": "broken",
+    "version": 1
+  }
+}
