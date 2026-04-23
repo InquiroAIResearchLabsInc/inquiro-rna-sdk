@@ -44,7 +44,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, "FAIL: payload not an object")
 		os.Exit(1)
 	}
-	canon, err := json.Marshal(plink)
+	// Match Python json.loads+canonical: JSON integers become float64 in Go; json.Marshal
+	// of float64(1) must match int 1 in Python — normalize whole numbers to int64.
+	norm := normalizeForCanonical(plink)
+	canon, err := json.Marshal(norm)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "FAIL", err)
 		os.Exit(1)
@@ -108,4 +111,30 @@ func hasHashes(m map[string]any) bool {
 	_, b := m["blake3"]
 	_, p := m["payload"]
 	return s && b && p
+}
+
+// normalizeForCanonical aligns JSON number types with Python's json: whole floats → int64
+// so encoding matches json.dumps on dicts that used int for JSON integer literals.
+func normalizeForCanonical(v any) any {
+	switch t := v.(type) {
+	case float64:
+		if t == float64(int64(t)) {
+			return int64(t)
+		}
+		return t
+	case map[string]any:
+		m := make(map[string]any, len(t))
+		for k, v := range t {
+			m[k] = normalizeForCanonical(v)
+		}
+		return m
+	case []any:
+		out := make([]any, len(t))
+		for i, x := range t {
+			out[i] = normalizeForCanonical(x)
+		}
+		return out
+	default:
+		return v
+	}
 }
