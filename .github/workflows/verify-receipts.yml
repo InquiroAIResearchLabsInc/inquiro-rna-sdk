@@ -56,11 +56,11 @@ jobs:
           INQUIRO_ROOT: ${{ github.workspace }}
         run: |
           cd examples/go
-          if ! go run ./verify_receipt /tmp/receipt.json; then
+          if ! go run verify_receipt.go /tmp/receipt.json; then
             echo "Go verify reported mismatch; confirming with Python (reference)..."
             python3 "$GITHUB_WORKSPACE/verifier/verify.py" /tmp/receipt.json
           fi
       - name: Go client example
         run: |
           cd examples/go
-          go run ./client
+          go run client.go
