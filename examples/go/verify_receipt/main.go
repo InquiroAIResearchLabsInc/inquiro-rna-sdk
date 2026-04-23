@@ -144,20 +144,32 @@ func canonicalBytes(receiptPath string, plink map[string]any) ([]byte, error) {
 	script := filepath.Join(root, "scripts", "payload_canonical_b64.py")
 	if root != "" {
 		if st, e := os.Stat(script); e == nil && !st.IsDir() {
-			var out []byte
-			var err error
+			var cmd *exec.Cmd
 			if p, _ := exec.LookPath("python3"); p != "" {
-				out, err = exec.Command("python3", script, receiptPath).Output()
+				cmd = exec.Command("python3", script, receiptPath)
 			} else if p, _ := exec.LookPath("py"); p != "" {
-				out, err = exec.Command("py", "-3", script, receiptPath).Output()
+				cmd = exec.Command("py", "-3", script, receiptPath)
 			} else {
-				err = fmt.Errorf("no python3 on PATH")
+				return nil, fmt.Errorf("no python3 on PATH (need Python for canonical bytes)")
 			}
-			if err == nil {
+			cmd.Dir = root
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				if os.Getenv("INQUIRO_ROOT") != "" {
+					return nil, fmt.Errorf("payload_canonical_b64: %w\n%s", err, string(out))
+				}
+			} else {
 				b64s := strings.TrimSpace(string(out))
 				b, decErr := base64.StdEncoding.DecodeString(b64s)
 				if decErr == nil {
 					return b, nil
+				}
+				if os.Getenv("INQUIRO_ROOT") != "" {
+					clip := b64s
+					if len(clip) > 64 {
+						clip = clip[:64]
+					}
+					return nil, fmt.Errorf("base64 decode: %v (output: %q)", decErr, clip)
 				}
 			}
 		}
