@@ -7,7 +7,8 @@ To strip removed paths and scrub legacy token strings from **all** commits, use 
 3. From a **clean** working tree:
 
 ```bash
-git filter-repo --path legacy-internal/ --invert-paths --replace-text /path/outside/repo/replacements.txt --force
+# Replace DIRECTORY with the internal-only tree you are removing (never commit a rules file that lists secret literals).
+git filter-repo --path DIRECTORY/ --invert-paths --replace-text /path/outside/repo/replacements.txt --force
 ```
 
 4. Re-add `origin` (`git remote add origin <url>`) and coordinate a **force-push** with all contributors.
