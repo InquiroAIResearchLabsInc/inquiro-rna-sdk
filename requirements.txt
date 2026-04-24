@@ -1,3 +1,8 @@
+<<<<<<< HEAD
 blake3>=0.4.0
 requests>=2.31.0
 cryptography>=42.0.0
+=======
+# Verifier and local tooling
+blake3>=0.4.0
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2

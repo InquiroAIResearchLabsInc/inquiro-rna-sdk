@@ -1,0 +1,9 @@
+{
+  "event_type": "model_invoked",
+  "device_id": "DEV-001",
+  "tenant_id": "demo_public",
+  "metadata": {
+    "source": "sandbox",
+    "version": 1
+  }
+}

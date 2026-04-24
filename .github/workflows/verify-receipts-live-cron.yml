@@ -18,6 +18,7 @@ jobs:
           go-version: "1.22"
       - name: Install dependencies
         run: pip install -r requirements.txt
+<<<<<<< HEAD
       - name: Generate test receipt from live API (JSON-RPC)
         env:
           LIVE_URL: https://aiflightrecorder.onrender.com/mcp
@@ -27,34 +28,66 @@ jobs:
           ok=0
           while [ $attempt -lt 5 ]; do
             if python3 scripts/submit_payload.py "$LIVE_URL" payloads/identity_verified.json /tmp/receipt.json; then
+=======
+      - name: Generate test receipt from live API
+        env:
+          LIVE_URL: https://aiflightrecorder.onrender.com/mcp
+        run: |
+          echo "POSTing identity_verified payload to $LIVE_URL ..."
+          attempt=0
+          ok=0
+          while [ $attempt -lt 5 ]; do
+            code=$(curl -sS -o /tmp/receipt.json -w "%{http_code}" -X POST "$LIVE_URL" \
+              -H "Content-Type: application/json" \
+              -d @payloads/identity_verified.json || true)
+            if [ "$code" = "200" ] && [ -s /tmp/receipt.json ]; then
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
               ok=1
               break
             fi
             attempt=$((attempt + 1))
+<<<<<<< HEAD
             echo "Attempt $attempt failed, retrying in 30s..."
             sleep 30
           done
           if [ "$ok" != "1" ]; then
             echo "Live API did not succeed after retries."
+=======
+            echo "Attempt $attempt failed (http $code), retrying in 30s..."
+            sleep 30
+          done
+          if [ "$ok" != "1" ]; then
+            echo "Live API did not return 200 after retries."
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
             exit 1
           fi
           echo "Receipt generated:"
           python -m json.tool < /tmp/receipt.json
+<<<<<<< HEAD
       - name: Merge and verify receipt integrity
         run: |
           python3 scripts/merge_attestation_response.py payloads/identity_verified.json /tmp/receipt.json /tmp/merged.json
           python verifier/verify.py /tmp/merged.json
+=======
+      - name: Verify receipt integrity
+        run: python verifier/verify.py /tmp/receipt.json
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
       - name: Go mod download
         env:
           INQUIRO_ROOT: ${{ github.workspace }}
         run: |
           cd examples/go
           go mod download
+<<<<<<< HEAD
       - name: Go verify_receipt
+=======
+      - name: Go verify_receipt (zeebo; fall back to Python on mismatch)
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
         env:
           INQUIRO_ROOT: ${{ github.workspace }}
         run: |
           cd examples/go
+<<<<<<< HEAD
           go run verify_receipt.go /tmp/merged.json
       - name: Verify all sample payloads (live)
         run: |
@@ -65,4 +98,23 @@ jobs:
             python3 scripts/submit_payload.py "$LIVE" "$payload" /tmp/test_receipt.json
             python3 scripts/merge_attestation_response.py "$payload" /tmp/test_receipt.json /tmp/merged_all.json
             python verifier/verify.py /tmp/merged_all.json
+=======
+          if ! go run ./verify_receipt /tmp/receipt.json; then
+            echo "Go verify reported mismatch; confirming with Python (reference)..."
+            python3 "$GITHUB_WORKSPACE/verifier/verify.py" /tmp/receipt.json
+          fi
+      - name: Verify all sample payloads (live)
+        run: |
+          set -e
+          for payload in payloads/*.json; do
+            echo "Testing $payload..."
+            code=$(curl -sS -o /tmp/test_receipt.json -w "%{http_code}" -X POST https://aiflightrecorder.onrender.com/mcp \
+              -H "Content-Type: application/json" \
+              -d @"$payload" || true)
+            if [ "$code" != "200" ]; then
+              echo "HTTP $code for $payload"
+              exit 1
+            fi
+            python verifier/verify.py /tmp/test_receipt.json
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
           done

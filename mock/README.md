@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Mock MCP Server
 
 A local mock of the Inquiro RNA MCP server for protocol testing.
@@ -47,4 +48,19 @@ Server starts at http://localhost:8000/mcp
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
+=======
+# Local mock MCP server
+
+- **Endpoint:** `POST http://localhost:8000/mcp` (JSON-RPC 2.0, or raw attestation JSON with `event_type`).
+- **Health:** `GET http://localhost:8000/health`
+
+**Hash values** are real cryptographic computations (SHA-256 + BLAKE3 over the same canonical JSON as the Python verifier). **Merkle chain** uses a simple in-memory counter starting at 1. **Signatures** are `mock_ed25519_signature`. **Tenant isolation** is not implemented.
+
+Use the live API for production-grade receipt generation: `https://aiflightrecorder.onrender.com/mcp`.
+
+Run (from repo root, after `pip install -r mock/requirements.txt`):
+
+```bash
+python mock/mock_server.py
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
 ```

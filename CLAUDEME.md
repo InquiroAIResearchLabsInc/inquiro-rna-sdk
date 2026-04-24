@@ -240,7 +240,11 @@ ELSE:                         CLOSED  → continue optimizing
 
 Constants (NEVER change without human approval):
 ```
+<<<<<<< HEAD
 ADVANCEMENT_LABEL_REDACTED = { qed_compression:0.90, proofpack_gap:0.85, axiom_discovery:0.88, meta_transfer:0.80 }
+=======
+THRESHOLDS_REDACTED = { qed_compression:0.90, proofpack_gap:0.85, axiom_discovery:0.88, meta_transfer:0.80 }
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
 AUTONOMY_THRESHOLD=0.75  TRANSFER_THRESHOLD=0.70  CASCADE_MULTIPLIER=5  CONFIDENCE_FALLBACK=0.85
 ```
 
@@ -338,7 +342,11 @@ Use subagents when: reading many files, parallelizable work, specialized review,
 # code-reviewer: tools: Read, Grep — model: sonnet — fresh context only
 # rna-validator: tools: Read, Grep — checks receipts/dual_hash/tenant_id compliance
 # gate-runner: tools: Bash (scoped to gate scripts) — T+2h/T+24h/T+48h
+<<<<<<< HEAD
 # monte-carlo-runner: tools: Bash (scoped to proof simulate) — returns pass/fail
+=======
+# monte-carlo-runner: tools: Bash (scoped to `proof simulate`) — returns pass/fail
+>>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
 ```
 
 **MUST:** subagent output includes result + receipt hash. No receipt = result rejected (LAW_1).
