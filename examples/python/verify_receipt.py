@@ -1,27 +1,4 @@
 #!/usr/bin/env python3
-<<<<<<< HEAD
-"""Standalone CLI: delegates to repo verifier/verify.py (same behavior)."""
-from __future__ import annotations
-
-import subprocess
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def main() -> None:
-    verify_py = ROOT / "verifier" / "verify.py"
-    if not verify_py.is_file():
-        print("FAIL: verifier/verify.py not found", file=sys.stderr)
-        sys.exit(1)
-    args = [sys.executable, str(verify_py), *sys.argv[1:]]
-    raise SystemExit(subprocess.call(args))
-
-
-if __name__ == "__main__":
-    main()
-=======
 """
 Example: submit an attestation and verify the returned receipt.
 Pass --tamper-test to run tamper-detection self-check (exits 0 on WORKING).
@@ -110,4 +87,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
->>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2

@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 legacy-internal/
->>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
 __pycache__/
 *.py[cod]
 .venv/
@@ -12,7 +9,4 @@ venv/
 .mypy_cache/
 .DS_Store
 Thumbs.db
-<<<<<<< HEAD
 node_modules/
-=======
->>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2

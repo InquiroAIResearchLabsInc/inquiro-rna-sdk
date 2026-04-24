@@ -2,7 +2,7 @@
 
 Receipts-native architecture for autonomous AI systems.
 Every AI decision emits a cryptographic receipt at compute-time.
-Dual-hash (SHA256 + BLAKE3). Merkle chained. Court-admissible under FRE 901(b)(9).
+Dual-hash (SHA256 + BLAKE3). Merkle chained. Receipts may support **authentication of electronic records** (for example, Federal Rule of Evidence 901(b)(9) in U.S. federal courts) when the full production ledger, custody chain, and legal posture are in scope—**this SDK is not legal advice**, is **not** jurisdiction-specific guidance, and **does not** by itself establish admissibility.
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/inquiroairesearchlabsinc/inquiro-rna-sdk)
 [![MIT License](https://img.shields.io/badge/license-MIT-amber)](LICENSE)

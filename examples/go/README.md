@@ -1,13 +1,5 @@
 # Go examples
 
-<<<<<<< HEAD
-Requires Go 1.22+.
-
-- `go run client.go` — JSON-RPC demo of all five tools (set `RNA_URL` or pass `--mock`).
-- `go run verify_receipt.go path/to/merged.json` — verify dual-hash binding (`github.com/zeebo/blake3`).
-
-Do not run `go build .` in this directory: both files are separate `main` programs; invoke `go run` with a single file.
-=======
 Per self-service v2: **client** is SHA-256 only (stdlib `crypto/sha256`). Full BLAKE3 verification is in **verify_receipt** using [github.com/zeebo/blake3](https://github.com/zeebo/blake3) (not in the Go standard library).
 
 ## Setup
@@ -34,4 +26,3 @@ go run ./verify_receipt /path/to/receipt.json
 ```
 
 **Note:** The canonical JSON of `payload` must match the Python `canonical_payload.canonical_bytes` (sorted object keys, compact separators). For production verification, the Python verifier is the reference implementation.
->>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2

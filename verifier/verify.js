@@ -1,112 +1,3 @@
-<<<<<<< HEAD
-/**
- * Inquiro RNA receipt verifier (SHA256 + BLAKE3 over canonical attestation).
- * Browser: import { verifyReceipt } from './verify.js'
- * CLI: node verify.js path/to/merged.json
- */
-import { blake3 } from "@noble/hashes/blake3.js";
-import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-/** Canonical JSON: sorted object keys, compact separators, UTF-8 (matches Python verifier). */
-export function canonicalStringify(value) {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((x) => canonicalStringify(x)).join(",")}]`;
-  }
-  const keys = Object.keys(value).sort();
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalStringify(value[k])}`).join(",")}}`;
-}
-
-function splitReceiptHash(value) {
-  const i = value.indexOf(":");
-  if (i < 0) throw new Error("receipt_hash must be sha256_hex:blake3_hex");
-  const sha = value.slice(0, i);
-  const b3 = value.slice(i + 1);
-  if (sha.length !== 64 || b3.length !== 64) {
-    throw new Error("receipt_hash components must be 64 hex chars each");
-  }
-  return { sha, b3 };
-}
-
-function attestationBody(doc) {
-  if (!doc.event_type || !doc.device_id || !doc.payload || !doc.timestamp || !doc.signature) {
-    throw new Error("merged document must include event_type, device_id, payload, timestamp, signature");
-  }
-  return {
-    device_id: doc.device_id,
-    event_type: doc.event_type,
-    payload: doc.payload,
-    signature: doc.signature,
-    timestamp: doc.timestamp,
-  };
-}
-
-function liftResult(api) {
-  const result = api.result && typeof api.result === "object" ? { ...api.result } : {};
-  const c = result.content;
-  if (Array.isArray(c) && c[0]?.type === "text" && typeof c[0].text === "string") {
-    try {
-      const inner = JSON.parse(c[0].text);
-      if (inner && typeof inner === "object") {
-        for (const k of Object.keys(inner)) {
-          if (result[k] === undefined) result[k] = inner[k];
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-  return result;
-}
-
-/** @param {Record<string, unknown>} doc - merged attestation + receipt_hash or full RPC doc */
-export async function verifyReceipt(doc) {
-  let merged = doc;
-  if (doc && doc.result) {
-    const lifted = liftResult(doc);
-    merged = { ...doc, ...lifted };
-  }
-  const rh = merged.receipt_hash;
-  if (typeof rh !== "string") throw new Error("receipt_hash missing");
-  const { sha: wantSha, b3: wantB3 } = splitReceiptHash(rh);
-  const body = attestationBody(merged);
-  const bytes = new TextEncoder().encode(canonicalStringify(body));
-  const shaHex = createHash("sha256").update(bytes).digest("hex");
-  const b3d = blake3(bytes);
-  const b3Hex = Array.from(b3d)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  const sha256 = shaHex === wantSha;
-  const blake3ok = b3Hex === wantB3;
-  return { sha256, blake3: blake3ok, verified: sha256 && blake3ok };
-}
-
-async function main() {
-  const p = process.argv[2];
-  if (!p) {
-    console.error("Usage: node verify.js <merged.json>");
-    process.exit(1);
-  }
-  const raw = await readFile(p, "utf8");
-  const doc = JSON.parse(raw);
-  const r = await verifyReceipt(doc);
-  console.log(JSON.stringify(r, null, 2));
-  process.exit(r.verified ? 0 : 1);
-}
-
-const __filename = fileURLToPath(import.meta.url);
-if (path.resolve(process.argv[1] || "") === __filename) {
-  main().catch((e) => {
-    console.error(e);
-    process.exit(1);
-  });
-}
-=======
 #!/usr/bin/env node
 /**
  * Verify RNA receipt: recompute SHA-256 and BLAKE3 of canonical attestation payload.
@@ -126,10 +17,10 @@ try {
   blake3 = require('blake3');
 } catch {
   process.stderr.write(
-    'WARN: blake3 npm package not found. Run: npm install blake3\n' +
-    '      SHA-256 will be verified; BLAKE3 will be skipped.\n'
+    'FAIL: blake3 npm package is required for dual-hash verification.\n' +
+    '      Run: npm install blake3  (from verifier/ or repo root with package.json)\n'
   );
-  blake3 = null;
+  process.exit(1);
 }
 
 function canonicalJson(obj) {
@@ -189,14 +80,11 @@ function main() {
   }
   const data = canonicalBytes(pl);
   const gotSha = crypto.createHash('sha256').update(data).digest('hex');
-  let gotB3 = null;
-  if (blake3) {
-    const h = blake3.createHash();
-    h.update(data);
-    gotB3 = h.digest('hex');
-  }
+  const h = blake3.createHash();
+  h.update(data);
+  const gotB3 = h.digest('hex');
   const shaMatch = gotSha === expectedSha;
-  const b3Match = gotB3 !== null ? gotB3 === expectedB3 : true;
+  const b3Match = gotB3 === expectedB3;
 
   if (shaMatch && b3Match) {
     console.log(`VERIFIED: dual hash matches (sha256=${gotSha.slice(0, 12)}...)`);
@@ -204,10 +92,9 @@ function main() {
   }
   const parts = [];
   if (!shaMatch) parts.push(`SHA256 mismatch (expected ${expectedSha}, got ${gotSha})`);
-  if (gotB3 !== null && !b3Match) parts.push(`BLAKE3 mismatch (expected ${expectedB3}, got ${gotB3})`);
+  if (!b3Match) parts.push(`BLAKE3 mismatch (expected ${expectedB3}, got ${gotB3})`);
   console.log(`FAILED: ${parts.join('; ')}`);
   process.exit(1);
 }
 
 main();
->>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2

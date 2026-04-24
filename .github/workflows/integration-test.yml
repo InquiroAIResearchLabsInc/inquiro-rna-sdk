@@ -6,15 +6,18 @@ jobs:
   mock-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Block unresolved merge conflict markers
+        run: |
+          ! git grep -nE '^(<<<<<<<|=======|>>>>>>>)' -- '*.py' '*.js' '*.yml' '*.md'
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@0b93645e9fea7318ca6999aeacba3ba4ee75398 # v5.3.0
         with:
           python-version: "3.12"
 
       - name: Install mock server dependencies
         run: |
-          pip install blake3 requests
+          pip install requests
           pip install -r mock/requirements.txt
 
       - name: Start mock server
@@ -27,38 +30,43 @@ jobs:
         run: |
           for script in examples/curl/*.sh; do
             echo "=== Running $script against mock ==="
-            RNA_URL=http://localhost:8000/mcp bash "$script"
+            RNA_BASE_URL=http://127.0.0.1:8000/mcp bash "$script"
           done
 
       - name: Test session-based verify
         run: |
           echo "Testing mock session verify..."
           python -c "
-          import requests, json
-          base = 'http://localhost:8000/mcp'
+          import json
+          import pathlib
+          import requests
+
+          root = pathlib.Path('.')
+          payload = json.loads((root / 'payloads' / 'identity_verified.json').read_text(encoding='utf-8'))
+          base = 'http://127.0.0.1:8000/mcp'
           r = requests.post(base, json={
-            'jsonrpc':'2.0','id':'1','method':'tools/call',
-            'params':{'name':'submit_attestation',
-                      'arguments':{'event_type':'identity_verified',
-                                   'device_id':'TEST-001',
-                                   'payload':{'test':True},
-                                   'timestamp':'2026-01-01T00:00:00Z',
-                                   'signature':'dGVzdA=='}}})
-          receipt = json.loads(r.json()['result']['content'][0]['text'])
-          receipt_hash = receipt['receipt_hash']
-          print(f'Submitted. Hash: {receipt_hash[:16]}...')
+              'jsonrpc': '2.0', 'id': '1', 'method': 'tools/call',
+              'params': {'name': 'submit_attestation', 'arguments': {'payload': payload}},
+          }, timeout=30)
+          r.raise_for_status()
+          rec = r.json()['result']['receipt']
+          receipt_hash = rec['sha256'] + ':' + rec['blake3']
+          print(f'Submitted. Hash prefix: {receipt_hash[:16]}...')
           r2 = requests.post(base, json={
-            'jsonrpc':'2.0','id':'2','method':'tools/call',
-            'params':{'name':'verify_receipt',
-                      'arguments':{'receipt_hash':receipt_hash}}})
-          result = json.loads(r2.json()['result']['content'][0]['text'])
-          assert result['valid'] == True, f'Expected valid: True, got {result}'
+              'jsonrpc': '2.0', 'id': '2', 'method': 'tools/call',
+              'params': {'name': 'verify_receipt', 'arguments': {'receipt_hash': receipt_hash}},
+          }, timeout=30)
+          r2.raise_for_status()
+          result = r2.json()['result']
+          assert result.get('valid') is True, f'Expected valid: True, got {result}'
           print('Session verify: PASSED')
           r3 = requests.post(base, json={
-            'jsonrpc':'2.0','id':'3','method':'tools/call',
-            'params':{'name':'verify_receipt',
-                      'arguments':{'receipt_hash':'a'*64 + ':' + 'a'*64}}})
-          result3 = json.loads(r3.json()['result']['content'][0]['text'])
-          assert result3['valid'] == False, f'Expected valid: False, got {result3}'
+              'jsonrpc': '2.0', 'id': '3', 'method': 'tools/call',
+              'params': {'name': 'verify_receipt',
+                        'arguments': {'receipt_hash': 'a' * 64 + ':' + 'a' * 64}},
+          }, timeout=30)
+          r3.raise_for_status()
+          result3 = r3.json()['result']
+          assert result3.get('valid') is False, f'Expected valid: False, got {result3}'
           print('Unknown hash returns False: PASSED')
           "

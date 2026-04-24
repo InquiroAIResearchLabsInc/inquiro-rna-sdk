@@ -1,28 +1,9 @@
 {
   "event_type": "delivery_confirmed",
-<<<<<<< HEAD
-  "device_id": "PAYLOAD-LOCK-001",
-  "payload": {
-    "payload_hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-    "chain_of_custody": {
-      "origin": "DRONE-NAV-07",
-      "handler_id": "RECIPIENT-001",
-      "verification_method": "biometric+pin",
-      "timestamp": "2026-04-08T11:00:00Z"
-    },
-    "delivery_location": {
-      "site_id": "DELIVERY-SITE-B",
-      "confirmed_by": "RECIPIENT-001"
-    }
-  },
-  "timestamp": "2026-04-08T11:00:00Z",
-  "signature": "c2lnbmF0dXJlX3BsYWNlaG9sZGVyX2Jhc2U2NA=="
-=======
   "device_id": "DEV-004",
   "tenant_id": "demo_public",
   "metadata": {
     "recipient": "demo_recipient",
     "version": 1
   }
->>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
 }

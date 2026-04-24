@@ -186,7 +186,7 @@ def stoprule_anchor_mismatch(exp, act):
 # INVARIANT: hash_continuity MUST be True or halt
 ```
 
-**topology_receipt** (topology-policy)
+**topology_receipt** (topology classification)
 ```python
 # SCHEMA: pattern_id, topology (open|hybrid|closed), E, V_esc, A, T, confidence
 # MUST emit on every classification. NEVER classify without this receipt.
@@ -228,7 +228,7 @@ def stoprule_anchor_mismatch(exp, act):
 
 ---
 
-# §8 topology-policy POLICY
+# §8 Topology policy
 
 Topology determines fate. Run before marking any module complete.
 
@@ -238,14 +238,9 @@ ELIF T > 0.70:                HYBRID  → transfer cross-domain
 ELSE:                         CLOSED  → continue optimizing
 ```
 
-Constants (NEVER change without human approval):
+Constants (NEVER change without human approval): **not published in this public SDK** — maintain numeric thresholds in your private operational standards only.
 ```
-<<<<<<< HEAD
-ADVANCEMENT_LABEL_REDACTED = { qed_compression:0.90, proofpack_gap:0.85, axiom_discovery:0.88, meta_transfer:0.80 }
-=======
-THRESHOLDS_REDACTED = { qed_compression:0.90, proofpack_gap:0.85, axiom_discovery:0.88, meta_transfer:0.80 }
->>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
-AUTONOMY_THRESHOLD=0.75  TRANSFER_THRESHOLD=0.70  CASCADE_MULTIPLIER=5  CONFIDENCE_FALLBACK=0.85
+# (redacted — internal advancement / autonomy constants)
 ```
 
 8-phase cycle per 60s: `SENSE→ANALYZE→CLASSIFY→HARVEST→HYPOTHESIZE→GATE→ACTUATE→SELECT`
@@ -255,7 +250,7 @@ If classification confidence < 0.85 → trigger external enrichment → reclassi
 
 ---
 
-# §9 simulation-validation REQUIREMENT
+# §9 Simulation validation requirement
 
 All 8 scenarios MUST pass before T+48h gate. Partial pass = gate fail.
 
@@ -342,11 +337,7 @@ Use subagents when: reading many files, parallelizable work, specialized review,
 # code-reviewer: tools: Read, Grep — model: sonnet — fresh context only
 # rna-validator: tools: Read, Grep — checks receipts/dual_hash/tenant_id compliance
 # gate-runner: tools: Bash (scoped to gate scripts) — T+2h/T+24h/T+48h
-<<<<<<< HEAD
-# monte-carlo-runner: tools: Bash (scoped to proof simulate) — returns pass/fail
-=======
-# monte-carlo-runner: tools: Bash (scoped to `proof simulate`) — returns pass/fail
->>>>>>> 77e9a363fc0946913d50da8c968b2aa40bd8fec2
+# simulation-runner: tools: Bash (scoped to `proof simulate`) — returns pass/fail
 ```
 
 **MUST:** subagent output includes result + receipt hash. No receipt = result rejected (LAW_1).
