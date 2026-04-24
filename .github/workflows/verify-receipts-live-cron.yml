@@ -12,7 +12,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Block unresolved merge conflict markers
         run: |
-          ! git grep -nE '^(<<<<<<<|=======|>>>>>>>)' -- '*.py' '*.js' '*.yml' '*.md'
+          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' -- '*.py' '*.js' '*.yml' '*.md'; then
+            echo "ERROR: merge conflict markers found in tracked sources"
+            exit 1
+          fi
       - uses: actions/setup-python@0b93645e9fea7318ca6999aeacba3ba4ee75398 # v5.3.0
         with:
           python-version: "3.12"
@@ -59,7 +62,7 @@ jobs:
           INQUIRO_ROOT: ${{ github.workspace }}
         run: |
           cd examples/go
-          if ! go run verify_receipt.go /tmp/receipt.json; then
+          if ! go run ./cmd/verify-receipt /tmp/receipt.json; then
             echo "Go verify reported mismatch; confirming with Python (reference)..."
             python3 "$GITHUB_WORKSPACE/verifier/verify.py" /tmp/receipt.json
           fi

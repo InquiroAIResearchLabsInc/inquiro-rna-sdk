@@ -1,10 +1,8 @@
-//go:build ignore
-
 // Verify a receipt: SHA-256 (stdlib) + BLAKE3 (github.com/zeebo/blake3).
 // When Python is available, canonical bytes come from scripts/payload_canonical_b64.py
 // (same source of truth as verifier/verify.py). Otherwise falls back to pure-Go JSON.
 //
-// Run: cd examples/go && go mod download && go run verify_receipt.go <path/to/receipt.json>
+// Run: cd examples/go && go mod download && go run ./cmd/verify-receipt <path/to/receipt.json>
 package main
 
 import (
@@ -23,7 +21,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: go run verify_receipt.go <receipt.json>")
+		fmt.Fprintln(os.Stderr, "Usage: go run ./cmd/verify-receipt <receipt.json>")
 		os.Exit(1)
 	}
 	raw, err := os.ReadFile(os.Args[1])

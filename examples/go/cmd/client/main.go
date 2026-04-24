@@ -1,8 +1,6 @@
-//go:build ignore
-
 // Example client: SHA-256 of a canonical attestation.
-// Run: go run examples/go/client.go [-v]
-// For SHA-256 + BLAKE3, see: go run examples/go/verify_receipt.go <receipt.json>
+// Run: cd examples/go && go run ./cmd/client [-v]
+// For SHA-256 + BLAKE3, see: go run ./cmd/verify-receipt <receipt.json>
 package main
 
 import (
@@ -27,7 +25,7 @@ type Payload struct {
 
 func main() {
 	fmt.Println("Inquiro RNA example — client (stdlib SHA-256 of canonical attestation).")
-	fmt.Println("BLAKE3 in Go: see verify_receipt.go (github.com/zeebo/blake3).")
+	fmt.Println("BLAKE3 in Go: see ./cmd/verify-receipt (github.com/zeebo/blake3).")
 	p := Payload{
 		DeviceID:  "DEV-001",
 		EventType: "identity_verified",
