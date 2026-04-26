@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import sys
+import threading
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -94,6 +95,7 @@ _TOOLS = [
 class MCPHandler(BaseHTTPRequestHandler):
     _chain: int = 0
     _receipts: dict[str, dict[str, Any]] = {}
+    _lock: threading.Lock = threading.Lock()
 
     def log_message(self, fmt: str, *args: Any) -> None:
         sys.stderr.write(f"[mock] {self.address_string()} {fmt % args}\n")
@@ -201,24 +203,27 @@ class MCPHandler(BaseHTTPRequestHandler):
         return _jsonrpc_error(req_id, -32601, f"Method not found: {method!r}")
 
     def _build_receipt(self, payload: dict[str, Any]) -> dict[str, Any]:
-        MCPHandler._chain += 1
         sha, b3 = dual_hex(payload)
         ts = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         tenant = str(payload.get("tenant_id", "demo_public"))
+        with MCPHandler._lock:
+            MCPHandler._chain += 1
+            chain_position = MCPHandler._chain
         receipt: dict[str, Any] = {
             "schema_version": 1,
             "request_id": str(uuid4()),
             "payload": payload,
             "sha256": sha,
             "blake3": b3,
-            "chain_position": MCPHandler._chain,
+            "chain_position": chain_position,
             "timestamp": ts,
             "tenant_id": tenant,
             "event_type": str(payload.get("event_type", "unknown")),
             "device_id": str(payload.get("device_id", "DEV-001")),
             "signature": "mock_ed25519_signature",
         }
-        MCPHandler._receipts[f"{sha}:{b3}"] = receipt
+        with MCPHandler._lock:
+            MCPHandler._receipts[f"{sha}:{b3}"] = receipt
         return receipt
 
 
