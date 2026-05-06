@@ -63,6 +63,16 @@ jobs:
           if [ -n "$LIVE_API_KEY" ]; then
             auth_header="X-Api-Key: $LIVE_API_KEY"
           fi
+          # Wrap payload in JSON-RPC submit_attestation envelope (matches
+          # README contract; live API expects JSON-RPC, not raw payload).
+          python3 -c "
+          import json, pathlib
+          payload = json.loads(pathlib.Path('payloads/identity_verified.json').read_text())
+          rpc = {'jsonrpc':'2.0','id':'1','method':'tools/call',
+                 'params':{'name':'submit_attestation','arguments':{'payload':payload}}}
+          pathlib.Path('/tmp/rpc_request.json').write_text(json.dumps(rpc))
+          " || { echo "::error::Failed to build JSON-RPC request body"; exit 1; }
+
           attempt=0
           ok=0
           while [ $attempt -lt 5 ]; do
@@ -70,7 +80,7 @@ jobs:
               ${auth_header:+-H "$auth_header"} \
               -H "Content-Type: application/json" \
               -X POST "$LIVE_URL" \
-              -d @payloads/identity_verified.json || echo "000")
+              -d @/tmp/rpc_request.json || echo "000")
             if [ "$http_code" = "200" ] && [ -s /tmp/receipt.json ]; then
               ok=1
               break
@@ -90,8 +100,8 @@ jobs:
             cat /tmp/receipt.json || true
             exit 1
           fi
-          echo "Receipt generated (HTTP $http_code):"
-          python -m json.tool < /tmp/receipt.json
+          echo "Live API response (HTTP $http_code):"
+          python -m json.tool < /tmp/receipt.json || cat /tmp/receipt.json
 
       - name: Verify receipt integrity
         run: python verifier/verify.py /tmp/receipt.json
@@ -122,11 +132,18 @@ jobs:
           fi
           for payload in payloads/*.json; do
             echo "Testing $payload..."
+            python3 -c "
+          import json, pathlib, sys
+          p = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          rpc = {'jsonrpc':'2.0','id':'1','method':'tools/call',
+                 'params':{'name':'submit_attestation','arguments':{'payload':p}}}
+          pathlib.Path('/tmp/rpc_request.json').write_text(json.dumps(rpc))
+          " "$payload"
             http_code=$(curl -sS -o /tmp/test_receipt.json -w "%{http_code}" --max-time 30 \
               ${auth_header:+-H "$auth_header"} \
               -H "Content-Type: application/json" \
               -X POST https://aiflightrecorder.onrender.com/mcp \
-              -d @"$payload" || echo "000")
+              -d @/tmp/rpc_request.json || echo "000")
             if [ "$http_code" != "200" ]; then
               echo "::error::HTTP $http_code for $payload"
               cat /tmp/test_receipt.json || true
