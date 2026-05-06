@@ -1,5 +1,9 @@
 # Scheduled: hits live Render endpoint to prove production + format on a warm or cold server.
-# Requires LIVE_API_KEY secret set in repo Settings → Secrets → Actions.
+# Required secret: LIVE_API_KEY (Settings → Secrets → Actions).
+# Optional secret: LIVE_TENANT_ID — if your API key is bound to a specific
+# tenant, set this so the workflow overrides the payload's "tenant_id" field
+# before submission. Without it, the payload uses "demo_public" and the
+# server may respond with accepted=false.
 name: Verify RNA Receipts (live API)
 on:
   schedule:
@@ -20,10 +24,6 @@ jobs:
       - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: "3.12"
-      - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
-        with:
-          go-version: "1.22"
-          cache: false
       - name: Install dependencies
         run: pip install -r requirements.txt
 
@@ -46,108 +46,130 @@ jobs:
           echo "Health status: HTTP $http_code"
           cat /tmp/health.json || true
           if [ "$http_code" = "403" ]; then
-            echo "::error::403 Forbidden on /health — LIVE_API_KEY may be wrong, missing, or the Render service is set to Private. Check repo Settings → Secrets → Actions."
+            echo "::error::403 Forbidden on /health — LIVE_API_KEY may be wrong, missing, or the Render service is set to Private."
             exit 1
           fi
           if [ "$http_code" != "200" ]; then
             echo "::warning::Health check returned HTTP $http_code — proceeding anyway (may be cold start)"
           fi
 
-      - name: Generate test receipt from live API
+      # Single step: submit each payload via JSON-RPC submit_attestation,
+      # then verify the server's receipt_hash by recomputing locally over
+      # the canonical payload bytes. Production responses are "thin"
+      # (only receipt_hash, no embedded sha256/blake3/payload), so we
+      # cannot use verifier/verify.py here — that tool was built for the
+      # mock server's verbose response. Verification is inlined.
+      - name: Submit and verify all sample payloads (live)
         env:
           LIVE_URL: https://aiflightrecorder.onrender.com/mcp
           LIVE_API_KEY: ${{ secrets.LIVE_API_KEY }}
+          LIVE_TENANT_ID: ${{ secrets.LIVE_TENANT_ID }}
         run: |
-          echo "POSTing identity_verified payload to $LIVE_URL ..."
-          auth_header=""
-          if [ -n "$LIVE_API_KEY" ]; then
-            auth_header="X-Api-Key: $LIVE_API_KEY"
-          fi
-          # Wrap payload in JSON-RPC submit_attestation envelope (matches
-          # README contract; live API expects JSON-RPC, not raw payload).
-          python3 -c "
-          import json, pathlib
-          payload = json.loads(pathlib.Path('payloads/identity_verified.json').read_text())
-          rpc = {'jsonrpc':'2.0','id':'1','method':'tools/call',
-                 'params':{'name':'submit_attestation','arguments':{'payload':payload}}}
-          pathlib.Path('/tmp/rpc_request.json').write_text(json.dumps(rpc))
-          " || { echo "::error::Failed to build JSON-RPC request body"; exit 1; }
+          python3 <<'PYEOF'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
 
-          attempt=0
-          ok=0
-          while [ $attempt -lt 5 ]; do
-            http_code=$(curl -sS -o /tmp/receipt.json -w "%{http_code}" --max-time 30 \
-              ${auth_header:+-H "$auth_header"} \
-              -H "Content-Type: application/json" \
-              -X POST "$LIVE_URL" \
-              -d @/tmp/rpc_request.json || echo "000")
-            if [ "$http_code" = "200" ] && [ -s /tmp/receipt.json ]; then
-              ok=1
-              break
-            fi
-            attempt=$((attempt + 1))
-            if [ "$http_code" = "403" ]; then
-              echo "::error::403 Forbidden — check LIVE_API_KEY secret and Render service visibility"
-              cat /tmp/receipt.json || true
-              exit 1
-            fi
-            echo "Attempt $attempt failed (HTTP $http_code), retrying in 15s..."
-            cat /tmp/receipt.json || true
-            sleep 15
-          done
-          if [ "$ok" != "1" ]; then
-            echo "::error::Live API did not return 200 after $attempt attempts (last HTTP $http_code)"
-            cat /tmp/receipt.json || true
-            exit 1
-          fi
-          echo "Live API response (HTTP $http_code):"
-          python -m json.tool < /tmp/receipt.json || cat /tmp/receipt.json
+          import blake3
 
-      - name: Verify receipt integrity
-        run: python verifier/verify.py /tmp/receipt.json
+          sys.path.insert(0, ".")
+          from canonical_payload import canonical_bytes
 
-      - name: Go mod download
-        env:
-          INQUIRO_ROOT: ${{ github.workspace }}
-        run: cd examples/go && go mod download
+          LIVE_URL = os.environ["LIVE_URL"]
+          API_KEY = os.environ.get("LIVE_API_KEY") or ""
+          TENANT_ID = os.environ.get("LIVE_TENANT_ID") or ""
 
-      - name: Go verify_receipt (zeebo; fall back to Python on mismatch)
-        env:
-          INQUIRO_ROOT: ${{ github.workspace }}
-        run: |
-          cd examples/go
-          if ! go run ./cmd/verify-receipt /tmp/receipt.json; then
-            echo "Go verify reported mismatch; confirming with Python (reference)..."
-            python3 "$GITHUB_WORKSPACE/verifier/verify.py" /tmp/receipt.json
-          fi
+          if TENANT_ID:
+              print(f"Using LIVE_TENANT_ID override: {TENANT_ID!r}")
+          else:
+              print("::warning::LIVE_TENANT_ID not set — using each payload's "
+                    "embedded tenant_id (may cause accepted=false if your API "
+                    "key is bound to a different tenant)")
 
-      - name: Verify all sample payloads (live)
-        env:
-          LIVE_API_KEY: ${{ secrets.LIVE_API_KEY }}
-        run: |
-          set -e
-          auth_header=""
-          if [ -n "$LIVE_API_KEY" ]; then
-            auth_header="X-Api-Key: $LIVE_API_KEY"
-          fi
-          for payload in payloads/*.json; do
-            echo "Testing $payload..."
-            python3 -c "
-          import json, pathlib, sys
-          p = json.loads(pathlib.Path(sys.argv[1]).read_text())
-          rpc = {'jsonrpc':'2.0','id':'1','method':'tools/call',
-                 'params':{'name':'submit_attestation','arguments':{'payload':p}}}
-          pathlib.Path('/tmp/rpc_request.json').write_text(json.dumps(rpc))
-          " "$payload"
-            http_code=$(curl -sS -o /tmp/test_receipt.json -w "%{http_code}" --max-time 30 \
-              ${auth_header:+-H "$auth_header"} \
-              -H "Content-Type: application/json" \
-              -X POST https://aiflightrecorder.onrender.com/mcp \
-              -d @/tmp/rpc_request.json || echo "000")
-            if [ "$http_code" != "200" ]; then
-              echo "::error::HTTP $http_code for $payload"
-              cat /tmp/test_receipt.json || true
-              exit 1
-            fi
-            python verifier/verify.py /tmp/test_receipt.json
-          done
+          headers = {"Content-Type": "application/json"}
+          if API_KEY:
+              headers["X-Api-Key"] = API_KEY
+
+          def submit(payload):
+              if TENANT_ID:
+                  payload = {**payload, "tenant_id": TENANT_ID}
+              rpc = {
+                  "jsonrpc": "2.0",
+                  "id": "1",
+                  "method": "tools/call",
+                  "params": {"name": "submit_attestation",
+                             "arguments": {"payload": payload}},
+              }
+              body = json.dumps(rpc).encode()
+              last_err = None
+              for attempt in range(1, 6):
+                  req = urllib.request.Request(LIVE_URL, data=body,
+                                               headers=headers, method="POST")
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as resp:
+                          return payload, json.loads(resp.read().decode())
+                  except urllib.error.HTTPError as e:
+                      err_body = e.read().decode(errors="replace")
+                      last_err = f"HTTP {e.code}: {err_body[:200]}"
+                      if e.code == 403:
+                          print(f"::error::403 Forbidden — LIVE_API_KEY may be invalid")
+                          sys.exit(1)
+                      print(f"Attempt {attempt} failed: {last_err}, retrying in 15s")
+                  except Exception as e:
+                      last_err = str(e)
+                      print(f"Attempt {attempt} failed: {last_err}, retrying in 15s")
+                  time.sleep(15)
+              print(f"::error::No 200 response after 5 attempts (last: {last_err})")
+              sys.exit(1)
+
+          def verify(payload, response):
+              result = response.get("result", {})
+              if not result.get("accepted"):
+                  print(f"::error::Live API rejected the payload (accepted=false). "
+                        f"receipt_hash={result.get('receipt_hash')!r}, "
+                        f"chain_position={result.get('chain_position')!r}")
+                  print("Likely cause: tenant_id mismatch. Set LIVE_TENANT_ID "
+                        "secret to the tenant your API key is bound to.")
+                  print(f"Full response: {json.dumps(response, indent=2)}")
+                  return False
+              receipt_hash = result.get("receipt_hash") or ""
+              if ":" not in receipt_hash:
+                  print(f"::error::Server returned malformed receipt_hash: "
+                        f"{receipt_hash!r}")
+                  return False
+              expected_sha, expected_b3 = receipt_hash.split(":", 1)
+              canon = canonical_bytes(payload)
+              got_sha = hashlib.sha256(canon).hexdigest()
+              got_b3 = blake3.blake3(canon).hexdigest()
+              if got_sha == expected_sha and got_b3 == expected_b3:
+                  print(f"  VERIFIED: dual-hash matches "
+                        f"(sha256={got_sha[:12]}..., chain_position="
+                        f"{result.get('chain_position')})")
+                  return True
+              print(f"::error::Hash mismatch")
+              if got_sha != expected_sha:
+                  print(f"  expected sha256={expected_sha}")
+                  print(f"  got      sha256={got_sha}")
+              if got_b3 != expected_b3:
+                  print(f"  expected blake3={expected_b3}")
+                  print(f"  got      blake3={got_b3}")
+              return False
+
+          payloads_dir = pathlib.Path("payloads")
+          all_ok = True
+          for p_path in sorted(payloads_dir.glob("*.json")):
+              print(f"--- {p_path.name} ---")
+              payload = json.loads(p_path.read_text())
+              submitted_payload, response = submit(payload)
+              if not verify(submitted_payload, response):
+                  all_ok = False
+
+          if not all_ok:
+              sys.exit(1)
+          print("All live payloads verified.")
+          PYEOF
