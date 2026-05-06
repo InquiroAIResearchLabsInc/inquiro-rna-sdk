@@ -56,10 +56,18 @@ jobs:
 
       - name: Generate receipt
         run: |
-          curl -s -X POST http://127.0.0.1:8000/mcp \
+          http_code=$(curl -sS -o /tmp/receipt.json -w '%{http_code}' \
+            --max-time 30 \
+            -X POST http://127.0.0.1:8000/mcp \
             -H "Content-Type: application/json" \
-            -d @payloads/identity_verified.json > /tmp/receipt.json
-          echo "Receipt generated:"
+            -d @payloads/identity_verified.json || echo "000")
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Generate receipt: HTTP $http_code from mock server"
+            echo "--- response body ---"
+            cat /tmp/receipt.json || true
+            exit 1
+          fi
+          echo "Receipt generated (HTTP $http_code):"
           python -m json.tool < /tmp/receipt.json
 
       - name: Verify receipt integrity (Python)
@@ -117,9 +125,17 @@ jobs:
           set -e
           for payload in payloads/*.json; do
             echo "Testing $payload..."
-            curl -s -X POST http://127.0.0.1:8000/mcp \
+            http_code=$(curl -sS -o /tmp/test_receipt.json -w '%{http_code}' \
+              --max-time 30 \
+              -X POST http://127.0.0.1:8000/mcp \
               -H "Content-Type: application/json" \
-              -d @"$payload" > /tmp/test_receipt.json
+              -d @"$payload" || echo "000")
+            if [ "$http_code" != "200" ]; then
+              echo "::error::HTTP $http_code for $payload"
+              echo "--- response body ---"
+              cat /tmp/test_receipt.json || true
+              exit 1
+            fi
             python verifier/verify.py /tmp/test_receipt.json
           done
 
