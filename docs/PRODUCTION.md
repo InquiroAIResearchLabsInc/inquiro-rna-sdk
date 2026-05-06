@@ -15,5 +15,5 @@ Use the [contact form](https://inquiroresearchlabs.ai/contact/) to start a pilot
 ## Operational checklist
 
 - Store merged verification JSON or full RPC responses according to your retention policy
-- Run [../.github/workflows/ci.yml](../.github/workflows/ci.yml) (or equivalent) on every release branch
-- Use a dedicated uptime monitor (UptimeRobot, Better Uptime, etc.) to track live API health
+- Run [../.github/workflows/verify-receipts.yml](../.github/workflows/verify-receipts.yml) (or equivalent) on every release branch
+- Monitor the scheduled [../.github/workflows/verify-receipts-live-cron.yml](../.github/workflows/verify-receipts-live-cron.yml) for live API health
